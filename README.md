@@ -20,7 +20,7 @@ Dieses Repository bietet eine leicht verständliche, gründliche Anleitung, um d
 
 Die vollständige Anleitung findest du in der Hauptdatei:
 
-👉 **[Zur Schritt-für-Schritt-Anleitung (Anleitung_Windows11_Administratorschutz.md)](./Anleitung_Windows11_Administratorschutz.md)**
+👉 **[Zur Schritt-für-Schritt-Anleitung (Anleitung_Windows11_Administratorschutz.md)](./Windows11_Administratorschutz.md)**
 
 ### Übersicht der Abschnitte:
 
