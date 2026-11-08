@@ -7,12 +7,14 @@ Schritt-für-Schritt-Anleitung für Windows 11 Home und Pro (24H2, 25H2, 26H2) �
 
 ---
 ## 📖 Inhaltsverzeichnis
-- [Teil 1 – Vorbereitung](#teil-1--vorbereitung-für-beide-wege)
-- [Teil 2 – Neuinstallation](#teil-2--neuinstallation-optional)
-- [Teil 3 – Konto umstellen](#teil-3--konto-umstellen-optional)
-- [Teil 4 – Schutz einrichten](#teil-4--schutz-einrichten)
-- [Teil 5 – Nacharbeiten & Extras](#teil-5--nacharbeiten--extras)
-- [Teil 6 – Troubleshooting & Glossar](#teil-6--troubleshooting--glossar)
+
+* [Teil 1 – Vorbereitung](#teil-1--vorbereitung-für-beide-wege)
+* [Teil 2 – Neuinstallation](#teil-2--neuinstallation-optional)
+* [Teil 3 – Konto umstellen](#teil-3--konto-umstellen-optional)
+* [Teil 4 – Schutz einrichten](#teil-4--schutz-einrichten)
+* [Teil 5 – Nacharbeiten & Extras](#teil-5--nacharbeiten--extras)
+* [Teil 6 – Troubleshooting & Glossar](#teil-6--troubleshooting--glossar)
+
 ---
 ## So benutzt du diese Anleitung
 
