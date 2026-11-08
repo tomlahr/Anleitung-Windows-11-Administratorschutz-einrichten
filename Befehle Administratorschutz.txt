@@ -1,0 +1,184 @@
+Befehle zur Anleitung "Windows 11 sicherer machen: Administratorschutz einrichten" - Version 1.2
+Jeden Block einzeln kopieren und im passenden Terminal einfuegen ([Normal] bzw. [Erhoeht], siehe Anleitung).
+
+==============================================================================
+1.3 Liste deiner Programme sichern
+==============================================================================
+winget export -o "$HOME\Downloads\meine-programme.json"
+
+==============================================================================
+1.4 Wiederherstellungsschlüssel der Verschlüsselung notieren
+==============================================================================
+manage-bde -protectors -get C:
+
+==============================================================================
+2.1 Installationsstick erstellen
+==============================================================================
+if (-not (Test-Path 'C:\ISO')) { throw 'Ordner C:\ISO fehlt - anlegen und ISO hineinlegen' }
+$usb = @(Get-Disk | Where-Object BusType -eq USB)
+$iso = @(Get-ChildItem 'C:\ISO\*.iso')
+if ($usb.Count -ne 1) { throw "Abbruch: $($usb.Count) USB-Datentraeger, erwartet 1" }
+if ($iso.Count -ne 1) { throw "Abbruch: $($iso.Count) ISO-Dateien, erwartet 1" }
+$d = $usb[0]; "Ziel: $($d.FriendlyName), $([int]($d.Size/1GB)) GB"
+if ((Read-Host 'Stick wird GELOESCHT. Weiter? (JA)') -cne 'JA') { throw 'Abgebrochen' }
+Clear-Disk -Number $d.Number -RemoveData -RemoveOEM -Confirm:$false
+Initialize-Disk -Number $d.Number -PartitionStyle GPT
+$size = [Math]::Min($d.Size - 16MB, 31GB)
+$p = New-Partition -DiskNumber $d.Number -Size $size -AssignDriveLetter
+Format-Volume -Partition $p -FileSystem FAT32 -NewFileSystemLabel 'WIN11' -Confirm:$false
+$u = "$($p.DriveLetter):"
+$m = ((Mount-DiskImage $iso[0].FullName -PassThru) | Get-Volume).DriveLetter + ':'
+robocopy "$m\" "$u\" /E /XF install.wim /NFL /NDL /NJH /NP
+$wim = "$m\sources\install.wim"; $swm = "$u\sources\install.swm"
+dism /Split-Image /ImageFile:$wim /SWMFile:$swm /FileSize:3800
+Dismount-DiskImage $iso[0].FullName | Out-Null
+"Fertig. Stick-Laufwerk: $u" 
+
+==============================================================================
+2.2 Lokales Konto vorbereiten (Antwortdatei)
+==============================================================================
+$stick = 'E:'    # <-- Laufwerksbuchstabe des Sticks anpassen
+$name  = Read-Host 'Benutzername (ohne Leerzeichen)'
+$pw    = Read-Host 'Uebergangskennwort (nach der Installation aendern)'
+$xml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<unattend xmlns="urn:schemas-microsoft-com:unattend"
+          xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+  <settings pass="oobeSystem">
+    <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64"
+        publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <OOBE>
+        <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+        <HideEULAPage>true</HideEULAPage>
+        <ProtectYourPC>3</ProtectYourPC>
+      </OOBE>
+      <UserAccounts><LocalAccounts>
+        <LocalAccount wcm:action="add">
+          <Name>$name</Name><Group>Administrators</Group>
+          <Password><Value>$pw</Value><PlainText>true</PlainText></Password>
+        </LocalAccount>
+      </LocalAccounts></UserAccounts>
+    </component>
+  </settings>
+</unattend>
+"@
+Set-Content "$stick\autounattend.xml" $xml -Encoding utf8
+Get-Item "$stick\autounattend.xml" | Select-Object FullName, Length
+
+==============================================================================
+2.3 Treiber sichern (empfohlen)
+==============================================================================
+$stick = 'E:'    # <-- Laufwerksbuchstabe des Sticks anpassen
+Export-WindowsDriver -Online -Destination "$stick\Drivers" | Measure-Object | Select-Object Count
+
+==============================================================================
+2.7a Treiber vom Stick einspielen
+==============================================================================
+$stick = 'E:'    # <-- Laufwerksbuchstabe des Sticks anpassen
+pnputil /add-driver "$stick\Drivers\*.inf" /subdirs /install
+
+==============================================================================
+2.8 Verschlüsselung prüfen und neuen Schlüssel sichern
+==============================================================================
+manage-bde -status C:
+manage-bde -protectors -get C:
+
+==============================================================================
+3.1 Kontotyp feststellen
+==============================================================================
+(Get-LocalUser $env:USERNAME).PrincipalSource
+
+==============================================================================
+4.1 Voraussetzungen prüfen
+==============================================================================
+Get-LocalGroupMember -SID 'S-1-5-32-544' | Select-Object Name
+
+==============================================================================
+4.3 Notfall-Administratorkonto anlegen
+==============================================================================
+$name = 'notfall-admin'
+$pw = Read-Host "Kennwort fuer $name" -AsSecureString
+New-LocalUser -Name $name -Password $pw -FullName 'Notfall-Administrator' `
+  -Description 'Nur fuer Notfaelle' -PasswordNeverExpires | Out-Null
+Add-LocalGroupMember -SID 'S-1-5-32-544' -Member $name
+Get-LocalGroupMember -SID 'S-1-5-32-544' | Select-Object Name
+
+==============================================================================
+4.4 Grundeinstellungen setzen
+==============================================================================
+$sys = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+$pin = 'HKLM:\SOFTWARE\Policies\Microsoft\PassportForWork\PINComplexity'
+Set-ItemProperty $sys -Name ConsentPromptBehaviorAdmin -Value 2 -Type DWord
+Set-ItemProperty $sys -Name InactivityTimeoutSecs -Value 600 -Type DWord
+New-Item $pin -Force | Out-Null
+Set-ItemProperty $pin -Name MinimumPINLength -Value 6 -Type DWord
+
+==============================================================================
+4.5 Wiederherstellungspunkt erstellen
+==============================================================================
+powershell.exe -NoProfile -Command "Enable-ComputerRestore -Drive 'C:\'"
+$c = "Checkpoint-Computer -Description 'vor Adminschutz' -RestorePointType MODIFY_SETTINGS"
+powershell.exe -NoProfile -Command $c
+
+==============================================================================
+4.6 Administratorschutz einschalten
+==============================================================================
+$sys = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+Set-ItemProperty $sys -Name TypeOfAdminApprovalMode -Value 2 -Type DWord
+Restart-Computer
+
+==============================================================================
+4.7 Prüfen, ob er wirkt
+==============================================================================
+whoami
+$env:USERPROFILE
+$sys = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+(Get-ItemProperty $sys).TypeOfAdminApprovalMode
+
+==============================================================================
+4.8 Rückweg, falls etwas nicht stimmt
+==============================================================================
+$sys = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+Set-ItemProperty $sys -Name TypeOfAdminApprovalMode -Value 1 -Type DWord
+Restart-Computer
+
+==============================================================================
+5.1 Programme mit winget verwalten
+==============================================================================
+winget upgrade                          # zeigt verfuegbare Updates
+winget upgrade --all                    # spielt alle Updates ein
+winget install --id VideoLAN.VLC        # Beispiel: ein Programm installieren
+
+==============================================================================
+5.2 Programme nach einer Neuinstallation zurückholen
+==============================================================================
+winget import -i "$HOME\Downloads\meine-programme.json" --accept-package-agreements
+
+==============================================================================
+5.3 Windows Terminal auch im erhöhten Modus
+==============================================================================
+Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.WindowsTerminal_8wekyb3d8bbwe
+
+$full = (Get-CimInstance Win32_ComputerSystem).UserName
+$sid  = (New-Object Security.Principal.NTAccount $full).Translate(
+          [Security.Principal.SecurityIdentifier]).Value
+$uhome = (Get-CimInstance Win32_UserProfile | Where-Object SID -eq $sid).LocalPath
+$rel = 'AppData\Local\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json'
+Copy-Item "$uhome\$rel" "$env:USERPROFILE\$rel" -Force
+
+==============================================================================
+5.4 Eigene Skripte schützen
+==============================================================================
+New-Item C:\Skripte -ItemType Directory -Force | Out-Null
+icacls C:\Skripte /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" `
+  "*S-1-5-32-545:(OI)(CI)RX"
+icacls C:\Skripte /setowner "*S-1-5-32-544" /T /C
+icacls C:\Skripte
+
+==============================================================================
+5.5 Programme, die bei jeder Anmeldung nachfragen
+==============================================================================
+$teil = 'Synaptics'          # <-- Teil des Programmnamens anpassen
+Get-Service "*$teil*" | Select-Object Name, Status, StartType
+$dienst = 'SynTPEnhService'   # <-- Dienstname aus der Ausgabe oben eintragen
+Set-Service $dienst -StartupType Disabled
