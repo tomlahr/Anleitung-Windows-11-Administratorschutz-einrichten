@@ -10,9 +10,10 @@ Eine praxisnahe Schritt-für-Schritt-Anleitung, um Windows 11 Home und Pro vor u
 
 ## 🎯 Über dieses Projekt
 
-Standardmäßig arbeiten Administratorkonten unter Windows 11 mit ständigen Root-Rechten – Schadsoftware kann dies unter Umständen ausnutzen. Der **Administratorschutz** trennt die administrative Ebene strikt ab: Erhöhte Rechte werden erst nach expliziter Authentifizierung über **Windows Hello** (PIN, Fingerabdruck oder Gesicht) und nur temporär an ein isoliertes Hilfskonto (`admin_...`) vergeben.
+Standardmäßig arbeiten Administratorkonten unter Windows 11 mit ständigen Root-Rechten – Schadsoftware kann dies unter Umständen ausnutzen. Der **Administratorschutz** (Administrator Protection) trennt die administrative Ebene strikt ab: Erhöhte Rechte werden erst nach expliziter Authentifizierung über **Windows Hello** (PIN, Fingerabdruck oder Gesicht) und nur temporär an ein isoliertes Hilfskonto (`admin_...`) vergeben.
 
-Dieses Repository bietet eine leicht verständliche, gründliche Anleitung, um diese Schutzfunktion sicher einzurichten – wahlweise auf einem bestehenden System oder im Rahmen einer sauberen Neuinstallation.
+### 💡 Wichtiges Hintergrundwissen: Der „Zwei-Fenster-Effekt“
+Durch das genutzte *Just-In-Time (JIT)*-Prinzip wird ein kryptografisch isoliertes Token erstellt, welches nach dem Schließen der Admin-Anwendung sofort vernichtet wird. Aufgrund dieser strikten Prozesstrennung ist beispielsweise **kein Drag-and-Drop** von Dateien aus einem Standard-Explorer-Fenster in ein erhöhtes Administrator-Terminal möglich.
 
 ---
 
@@ -39,6 +40,19 @@ Die vollständige Anleitung findest du in der Hauptdatei:
 * **Konto:** Benutzerkonto mit Administratorrechten.
 * **Hardware:** TPM 2.0 & unterstützte Hardware für Windows Hello (PIN, Sensor oder Kamera).
 * **Zeitaufwand:** ca. 20–45 Minuten (ohne Neuinstallation).
+
+### Schnelle Aktivierung / Rollback via PowerShell
+Für IT-Administratoren oder zur schnellen Automatisierung lässt sich die Funktion direkt über die Windows-Registrierung steuern (erfordert einen anschließenden **Systemneustart**):
+
+```powershell
+# AKTIVIEREN
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableAdministratorProtection" -Value 1
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "ConsentPromptBehaviorAdmin" -Value 5
+
+# DEAKTIVIEREN (Rollback zum klassischen UAC-Zustand)
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableAdministratorProtection" -Value 0
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "ConsentPromptBehaviorAdmin" -Value 2
+```
 
 ---
 
